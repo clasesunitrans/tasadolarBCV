@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Consulta Dólar BCV</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <meta name="theme-color" content="#007acc">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: #bcc8da;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
+      color: #007acc;
+    }
+
+    .container {
+      background-color: rgb(233, 201, 142);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    button {
+      background-color: #007acc;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      margin-top: 1rem;
+    }
+
+    button:hover {
+      background-color: #005f99;
+    }
+
+    .spinner {
+      display: none;
+      margin-top: 1rem;
+      width: 24px;
+      height: 24px;
+      border: 3px solid #007acc;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .timestamp {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: #666;
+    }
+
+    .result {
+      margin-top: 1.5rem;
+      text-align: left;
+      background-color: #f9f9f9;
+      border-radius: 10px;
+      padding: 1rem;
+      animation: fadeIn 0.4s ease forwards;
+    }
+
+    .result p {
+      margin: 0.4rem 0;
+      font-size: 0.95rem;
+    }
+
+    .label {
+      font-weight: bold;
+      color: #333;
+    }
+
+    .value {
+      color: #333;
+    }
+
+    footer {
+      margin-top: 2rem;
+      font-size: 0.8rem;
+      color: #6b5353;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 500px) {
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      .container {
+        padding: 1.5rem;
+      }
+      .value {
+        font-weight: bold;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Consulta Dólar BCV</h1>
+
+  <div class="container">
+    <button id="fetchBtn">Consultar Dólar Oficial</button>
+    <div class="spinner" id="spinner"></div>
+    <div class="timestamp" id="timestamp"></div>
+    <div class="result" id="result" style="display: none;"></div>
+  </div>
+
+  <footer>
+    &copy; 2025 Felipe Martinez - fmartinezb@gmail.com
+  </footer>
+
+  <script>
+    const fetchBtn = document.getElementById('fetchBtn');
+    const resultDiv = document.getElementById('result');
+    const timestampDiv = document.getElementById('timestamp');
+    const spinner = document.getElementById('spinner');
+
+    fetchBtn.addEventListener('click', async () => {
+      fetchBtn.disabled = true;
+      spinner.style.display = 'block';
+      resultDiv.style.display = 'none';
+
+      try {
+        const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial ');
+        if (!response.ok) throw new Error('Error al obtener los datos.');
+
+        const data = await response.json();
+        localStorage.setItem('ultimoDolar', JSON.stringify(data));
+        mostrarDatos(data);
+
+      } catch (error) {
+        console.error(error);
+        const ultimoGuardado = localStorage.getItem('ultimoDolar');
+        if (ultimoGuardado) {
+          mostrarDatos(JSON.parse(ultimoGuardado), true);
+        } else {
+          resultDiv.innerHTML = `<p style="color:red;">No hay conexión ni datos guardados.</p>`;
+          resultDiv.style.display = 'block';
+        }
+      } finally {
+        spinner.style.display = 'none';
+        fetchBtn.disabled = false;
+      }
+    });
+
+    function mostrarDatos(data, desdeCache = false) {
+      const now = new Date();
+      const options = {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      };
+      const formattedDate = now.toLocaleDateString('es-VE', options)
+                              .replace(/\//g, '-')
+                              .replace(',', '');
+
+      timestampDiv.textContent = `Última consulta: ${formattedDate}`;
+
+      resultDiv.innerHTML = `
+        <p><span class="label">Fuente:</span> <span class="value">${data.fuente || 'No disponible'}</span></p>
+        <p><span class="label">Nombre:</span> <span class="value">${data.nombre || 'No disponible'}</span></p>
+        <p><span class="label">Compra:</span> <span class="value">${data.compra ? data.compra.toFixed(2) + ' Bs' : 'No disponible'}</span></p>
+        <p><span class="label">Venta:</span> <span class="value">${data.venta ? data.venta.toFixed(2) + ' Bs' : 'No disponible'}</span></p>
+        <p><span class="label">Tasa BCV:</span> <strong class="value">${data.promedio ? data.promedio.toFixed(2) + ' Bs' : 'No disponible'}</strong></p>
+        <p><span class="label">Actualizado:</span> <span class="value">${data.fechaActualizacion ? new Date(data.fechaActualizacion).toLocaleString('es-VE') : 'No disponible'}</span></p>
+        ${desdeCache ? '<p style="color:orange; font-size:0.85rem; margin-top:0.5rem;">Datos guardados (sin conexión)</p>' : ''}
+      `;
+
+      resultDiv.style.display = 'block';
+    }
+
+    // Registrar Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(reg => console.log('Service Worker registrado:', reg.scope))
+        .catch(err => console.log('Error registrando SW:', err));
+    }
+  </script>
+</body>
+</html>
